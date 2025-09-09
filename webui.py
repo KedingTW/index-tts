@@ -221,8 +221,8 @@ with gr.Blocks(title="IndexTTS Demo") as demo:
 
 if __name__ == "__main__":
     # SSL
-    ssl_crt = '../ssl/server.crt'
-    ssl_key = '../ssl/server.key'
+    ssl_crt = '/ssl/server.crt'
+    ssl_key = '/ssl/server.key'
 
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_context.load_cert_chain(ssl_crt, ssl_key)
