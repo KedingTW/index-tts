@@ -62,7 +62,10 @@ with open("tests/cases.jsonl", "r", encoding="utf-8") as f:
 def gen_single(prompt, text, infer_mode, max_text_tokens_per_sentence=120, sentences_bucket_max_size=4,
                 *args, progress=gr.Progress()):
     
-    prompt = "/vocals/" + prompt + ".wav"
+    # 如果 prompt 已經是一個存在的檔案路徑（上傳的音檔），直接使用
+    # 否則當作預設聲音名稱，拼接成 /vocals/{name}.wav
+    if not prompt or not os.path.isfile(prompt):
+        prompt = "/vocals/" + (prompt or "KD-Female-1") + ".wav"
 
     output_path = None
     if not output_path:
@@ -111,16 +114,13 @@ with gr.Blocks(title="IndexTTS Demo") as demo:
     with gr.Tab("音频生成"):
         with gr.Row():
             os.makedirs("prompts",exist_ok=True)
-            # prompt_audio = gr.Audio(label="参考音频",key="prompt_audio",
-                                    # sources=["upload","microphone"],type="filepath")
-            prompt_audio = gr.Radio(
-              choices=[
-                 "KD-Female-1",
-                 "KD-Female-2",
-                 "KD-Female-3",
-                 "KD-Male-1",
-                 "KD-Male-2"
-              ], label="參考音頻編號", value="KD-W1")
+            with gr.Column():
+                prompt_audio = gr.Audio(label="參考音頻（上傳自訂音檔）", key="prompt_audio",
+                                        sources=["upload", "microphone"], type="filepath")
+                preset_choices = ["KD-Female-1", "KD-Female-2", "KD-Female-3", "KD-Male-1", "KD-Male-2"]
+                preset_dropdown = gr.Dropdown(
+                    choices=preset_choices, label="或選擇預設聲音",
+                    info="上傳音檔時此選項會被忽略", value=None)
             prompt_list = os.listdir("prompts")
             default = ''
             if prompt_list:
@@ -175,6 +175,7 @@ with gr.Blocks(title="IndexTTS Demo") as demo:
             gr.Examples(
                 examples=example_cases,
                 inputs=[prompt_audio, input_text_single, infer_mode],
+                label="範例（使用音檔作為參考）",
             )
 
     def on_input_text_change(text, max_tokens_per_sentence):
@@ -211,8 +212,18 @@ with gr.Blocks(title="IndexTTS Demo") as demo:
     #                      inputs=[],
     #                      outputs=[gen_button])
 
-    gen_button.click(gen_single,
-                     inputs=[prompt_audio, input_text_single, infer_mode,
+    def resolve_and_gen(uploaded_audio, preset_voice, text, infer_mode,
+                        max_text_tokens_per_sentence, sentences_bucket_max_size,
+                        *args, progress=gr.Progress()):
+        """決定使用上傳音檔或預設聲音，再呼叫 gen_single。"""
+        # 上傳音檔優先；沒有上傳則用 dropdown 預設聲音
+        prompt = uploaded_audio if uploaded_audio else preset_voice
+        return gen_single(prompt, text, infer_mode,
+                          max_text_tokens_per_sentence, sentences_bucket_max_size,
+                          *args, progress=progress)
+
+    gen_button.click(resolve_and_gen,
+                     inputs=[prompt_audio, preset_dropdown, input_text_single, infer_mode,
                              max_text_tokens_per_sentence, sentences_bucket_max_size,
                              *advanced_params,
                      ],
